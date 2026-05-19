@@ -1,6 +1,15 @@
-# CVE-2026-31431 Mitigation DaemonSet
+# Copy Fail Mitigation DaemonSets
 
-DaemonSet для исправления CVE-2026-31431 на всех worker нодах кластеров MKS.
+DaemonSet'ы для исправления уязвимостей семейства Copy Fail на всех worker нодах кластеров MKS.
+
+## Содержание
+
+- [CVE-2026-31431 (Copy Fail)](#cve-2026-31431-copy-fail)
+- [CVE-2026-43284, CVE-2026-43500, CopyFail2 (Dirty Flag)](#cve-2026-43284-cve-2026-43500-copyfail2-dirty-flag)
+
+---
+
+## CVE-2026-31431 (Copy Fail)
 
 ## Описание уязвимости
 
@@ -74,4 +83,77 @@ kubectl -n kube-system logs -l app=cve-2026-31431-mitigation -c mitigation
 
 ```sh
 kubectl delete -f copy-fail-mitigation-daemonset.yaml
+```
+
+---
+
+## CVE-2026-43284, CVE-2026-43500, CopyFail2 (Dirty Flag)
+
+**CVE ID:** CVE-2026-43284, CVE-2026-43500
+
+**CopyFail2:** без отдельного CVE ID
+
+**CVE Links:**
+- https://nvd.nist.gov/vuln/detail/CVE-2026-43284
+- https://nvd.nist.gov/vuln/detail/CVE-2026-43500
+
+**Краткое описание:**
+
+Dirty Flag / CopyFail2 — уязвимости в подсистеме IPsec ядра Linux (модули esp4, esp6 и rxrpc), позволяющие локальному непривилегированному пользователю получить права суперпользователя (root).
+
+**Особенности:**
+- возможность использования как примитив побега из контейнера на хост
+- используют модули ядра esp4 (IPsec IPv4), esp6 (IPsec IPv6) и rxrpc (протокол RxRPC), которые включены по умолчанию в большинстве дистрибутивов
+
+## Что делает этот DaemonSet
+
+DaemonSet запускает контейнер на каждой worker ноде кластера:
+
+1. Проверяет через `lsmod` загружены ли модули `esp4`, `esp6`, `rxrpc`
+2. Создает конфигурацию `/etc/modprobe.d/disable-esp-rxrpc.conf` с правилами `install esp4/esp6/rxrpc /bin/false`
+3. Выполняет `rmmod` для каждого модуля если он загружен
+4. Проверяет что модули больше не загружены через повторный `lsmod`
+
+## Использование
+
+### 1. Скачать DaemonSet
+
+```sh
+wget https://raw.githubusercontent.com/selectel/mks-copy-fail-mitigation/refs/heads/main/dirty-flag-copyfail2-mitigation-daemonset.yaml
+```
+
+Или клонировать репозиторий:
+
+```sh
+git clone https://github.com/selectel/mks-copy-fail-mitigation.git
+cd mks-copy-fail-mitigation
+```
+
+### 2. Применить DaemonSet
+
+```sh
+kubectl apply -f dirty-flag-copyfail2-mitigation-daemonset.yaml
+```
+
+### 3. Проверить статус выполнения
+
+```sh
+# Проверить статус DaemonSet
+kubectl get daemonset -n kube-system dirty-flag-copyfail2-mitigation
+
+# Получить список подов
+kubectl -n kube-system get pods -l app=dirty-flag-copyfail2-mitigation -o wide
+```
+
+### 4. Просмотреть логи выполнения
+
+```sh
+# Логи initContainer
+kubectl -n kube-system logs -l app=dirty-flag-copyfail2-mitigation -c mitigation
+```
+
+### 5. Для удаления DaemonSet
+
+```sh
+kubectl delete -f dirty-flag-copyfail2-mitigation-daemonset.yaml
 ```
